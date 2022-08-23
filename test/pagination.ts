@@ -92,7 +92,38 @@ describe('TypeORM cursor-based pagination test', () => {
     expect(firstPageResult.data[1].id).to.not.eq(nextPageResult.data[0].id);
     expect(firstPageResult.data[1].balance).to.be.above(nextPageResult.data[0].balance);
     expect(firstPageResult.data[0].id).to.eq(10);
-    expect(nextPageResult.data[0].id).to.eq(8);
+    expect(nextPageResult.data[0].id).to.eq(9);
+  });
+
+  it('We can get all items in the datatable', async () => {
+    const queryBuilder = createQueryBuilder(User, 'user');
+
+    let afterCursor: string | undefined;
+    let itemsCount = 0;
+    let lastItem: User;
+    do {
+      const paginator = buildPaginator({
+        entity: User,
+        paginationKeys: ['balance', 'id'],
+        query: {
+          limit: 2,
+          afterCursor,
+        },
+      });
+      const res = await paginator.paginate(queryBuilder.clone());
+      if (res.data.length) {
+        itemsCount += res.data.length;
+        res.data.forEach((item) => {
+          if (lastItem) {
+            expect(item.balance <= lastItem.balance).to.be.true;
+          }
+          lastItem = item;
+        });
+      }
+      afterCursor = res.cursor.afterCursor || undefined;
+    } while (afterCursor);
+
+    expect(itemsCount).to.equal(10);
   });
 
   it('should return entities with given order', async () => {

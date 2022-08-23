@@ -141,22 +141,43 @@ export default class Paginator<Entity> {
     cursors: CursorParam,
   ): void {
     const operator = this.getOperator();
-    const params: CursorParam = {};
-    this.paginationKeys.forEach((key) => {
-      params[key] = cursors[key];
-      where.andWhere(
-        new Brackets((qb) => {
-          const paramsHolder = {
-            [`${key}_1`]: params[key],
-            [`${key}_2`]: params[key],
-          };
-          qb.where(`${this.alias}.${key} ${operator} :${key}_1`, paramsHolder);
-          if (this.paginationUniqueKey !== key) {
-            qb.orWhere(`${this.alias}.${key} = :${key}_2`, paramsHolder);
-          }
-        }),
-      );
-    });
+
+    const isUniqueKeyPagination = this.paginationKeys.length === 1
+      && this.paginationKeys[0] === this.paginationUniqueKey;
+
+    where.andWhere(
+      new Brackets((qb1) => {
+        qb1.orWhere(
+          new Brackets((qb2) => {
+            this.paginationKeys.forEach((key) => {
+              if (!isUniqueKeyPagination && key === this.paginationUniqueKey) {
+                return;
+              }
+              const paramsHolder = {
+                [`${key}_1`]: cursors[key],
+              };
+              qb2.andWhere(`${this.alias}.${key} ${operator} :${key}_1`, paramsHolder);
+            });
+          }),
+        );
+        if (!isUniqueKeyPagination) {
+          qb1.orWhere(
+            new Brackets((qb2) => {
+              this.paginationKeys.forEach((key) => {
+                const paramsHolder = {
+                  [`${key}_1`]: cursors[key],
+                };
+                if (key === this.paginationUniqueKey) {
+                  qb2.andWhere(`${this.alias}.${key} ${operator} :${key}_1`, paramsHolder);
+                } else {
+                  qb2.andWhere(`${this.alias}.${key} = :${key}_1`, paramsHolder);
+                }
+              });
+            }),
+          );
+        }
+      }),
+    );
   }
 
   private getOperator(): string {
