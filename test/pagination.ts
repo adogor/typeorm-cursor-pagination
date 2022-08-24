@@ -126,6 +126,43 @@ describe('TypeORM cursor-based pagination test', () => {
     expect(itemsCount).to.equal(10);
   });
 
+  it('should paginate and sort on custom column', async () => {
+    const queryBuilder = createQueryBuilder(User, 'user');
+
+    let afterCursor: string | undefined;
+    let itemsCount = 0;
+    let lastItem: User;
+    do {
+      const paginator = buildPaginator({
+        entity: User,
+        paginationKeys: [{
+          key: 'user_computed_substring',
+          select: 'substring(user.computed, 10)',
+          getCursorValue(entity): string {
+            return entity.computed.substring(9);
+          },
+        }, 'id'],
+        query: {
+          limit: 2,
+          afterCursor,
+        },
+      });
+      const res = await paginator.paginate(queryBuilder.clone());
+      if (res.data.length) {
+        itemsCount += res.data.length;
+        res.data.forEach((item) => {
+          if (lastItem) {
+            expect(item.computed <= lastItem.computed).to.be.true;
+          }
+          lastItem = item;
+        });
+      }
+      afterCursor = res.cursor.afterCursor || undefined;
+    } while (afterCursor);
+
+    expect(itemsCount).to.equal(10);
+  });
+
   it('should return entities with given order', async () => {
     const queryBuilder = createQueryBuilder(User, 'user');
     const ascPaginator = buildPaginator({

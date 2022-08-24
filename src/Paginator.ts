@@ -35,6 +35,15 @@ export interface PagingResult<Entity> {
   cursor: Cursor;
 }
 
+export type PaginationKeysType<Entity> =
+  (Extract<keyof Entity, string> | CustomPaginationType<Entity>);
+
+export interface CustomPaginationType<Entity> {
+  select: string;
+  key: string;
+  getCursorValue: (entity: Entity) => string;
+}
+
 export default class Paginator<Entity> {
   private afterCursor: string | null = null;
 
@@ -52,7 +61,7 @@ export default class Paginator<Entity> {
 
   public constructor(
     private entity: ObjectType<Entity>,
-    private paginationKeys: Extract<keyof Entity, string>[],
+    private paginationKeys: PaginationKeysType<Entity>[],
     private paginationUniqueKey: Extract<keyof Entity, string>,
   ) {}
 
@@ -116,7 +125,13 @@ export default class Paginator<Entity> {
     builder: SelectQueryBuilder<Entity>,
   ): SelectQueryBuilder<Entity> {
     const cursors: CursorParam = {};
-    const clonedBuilder = new SelectQueryBuilder<Entity>(builder)
+    const clonedBuilder = new SelectQueryBuilder<Entity>(builder);
+
+    this.paginationKeys.forEach((item) => {
+      if (typeof item !== 'string') {
+        clonedBuilder.addSelect(item.select, item.key);
+      }
+    });
 
     if (this.hasAfterCursor()) {
       Object.assign(cursors, this.decode(this.afterCursor as string));
@@ -136,6 +151,13 @@ export default class Paginator<Entity> {
     return clonedBuilder;
   }
 
+  private getWhereClause(item: PaginationKeysType<Entity>): string {
+    if (typeof item === 'string') {
+      return `${this.alias}.${item}`;
+    }
+    return item.select;
+  }
+
   private buildCursorQuery(
     where: WhereExpressionBuilder,
     cursors: CursorParam,
@@ -149,28 +171,30 @@ export default class Paginator<Entity> {
       new Brackets((qb1) => {
         qb1.orWhere(
           new Brackets((qb2) => {
-            this.paginationKeys.forEach((key) => {
+            this.paginationKeys.forEach((item) => {
+              const key = typeof item === 'string' ? item : item.key;
               if (!isUniqueKeyPagination && key === this.paginationUniqueKey) {
                 return;
               }
               const paramsHolder = {
                 [`${key}_1`]: cursors[key],
               };
-              qb2.andWhere(`${this.alias}.${key} ${operator} :${key}_1`, paramsHolder);
+              qb2.andWhere(`${this.getWhereClause(item)} ${operator} :${key}_1`, paramsHolder);
             });
           }),
         );
         if (!isUniqueKeyPagination) {
           qb1.orWhere(
             new Brackets((qb2) => {
-              this.paginationKeys.forEach((key) => {
+              this.paginationKeys.forEach((item) => {
+                const key = typeof item === 'string' ? item : item.key;
                 const paramsHolder = {
                   [`${key}_1`]: cursors[key],
                 };
                 if (key === this.paginationUniqueKey) {
-                  qb2.andWhere(`${this.alias}.${key} ${operator} :${key}_1`, paramsHolder);
+                  qb2.andWhere(`${this.getWhereClause(item)} ${operator} :${key}_1`, paramsHolder);
                 } else {
-                  qb2.andWhere(`${this.alias}.${key} = :${key}_1`, paramsHolder);
+                  qb2.andWhere(`${this.getWhereClause(item)} = :${key}_1`, paramsHolder);
                 }
               });
             }),
@@ -200,8 +224,9 @@ export default class Paginator<Entity> {
     }
 
     const orderByCondition: OrderByCondition = {};
-    this.paginationKeys.forEach((key) => {
-      orderByCondition[`${this.alias}.${key}`] = order;
+    this.paginationKeys.forEach((item) => {
+      const key = typeof item === 'string' ? `${this.alias}.${item}` : item.key;
+      orderByCondition[`${key}`] = order;
     });
 
     return orderByCondition;
@@ -217,10 +242,14 @@ export default class Paginator<Entity> {
 
   private encode(entity: Entity): string {
     const payload = this.paginationKeys
-      .map((key) => {
-        const type = this.getEntityPropertyType(key);
-        const value = encodeByType(type, entity[key]);
-        return `${key}:${value}`;
+      .map((item) => {
+        if (typeof item === 'string') {
+          const type = this.getEntityPropertyType(item);
+          const value = encodeByType(type, entity[item]);
+          return `${item}:${value}`;
+        }
+        const value = encodeURIComponent(item.getCursorValue(entity));
+        return `${item.key}:${value}`;
       })
       .join(',');
 
@@ -245,7 +274,7 @@ export default class Paginator<Entity> {
       'design:type',
       this.entity.prototype,
       key,
-    ).name.toLowerCase();
+    )?.name.toLowerCase() || 'string';
   }
 
   private flipOrder(order: Order): Order {

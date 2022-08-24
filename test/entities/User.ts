@@ -21,6 +21,13 @@ export class User {
   public name!: string;
 
   @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: false,
+  })
+  public computed!: string;
+
+  @Column({
     type: 'float',
     nullable: false,
   })

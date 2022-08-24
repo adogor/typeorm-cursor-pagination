@@ -10,11 +10,13 @@ function setTimestamp(i: number): Date {
 }
 
 const balances = [1.1, 2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2];
+const computedColumn = [4, 8, 2, 9, 1, 3, 6, 5, 7, 99].map((val) => `computed_${val}`);
 
 export async function prepareData(): Promise<void> {
   const data = [...Array(10).keys()].map((i) => ({
     name: `user${i}`,
     balance: balances[i],
+    computed: computedColumn[i],
     camelCaseColumn: setTimestamp(i),
     photos: [
       {

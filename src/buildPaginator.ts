@@ -1,6 +1,6 @@
 import { ObjectType } from 'typeorm';
 
-import Paginator, { Order } from './Paginator';
+import Paginator, { Order, PaginationKeysType } from './Paginator';
 
 export interface PagingQuery {
   afterCursor?: string;
@@ -8,12 +8,11 @@ export interface PagingQuery {
   limit?: number;
   order?: Order | 'ASC' | 'DESC';
 }
-
 export interface PaginationOptions<Entity> {
   entity: ObjectType<Entity>;
   alias?: string;
   query?: PagingQuery;
-  paginationKeys?: Extract<keyof Entity, string>[];
+  paginationKeys?: PaginationKeysType<Entity>[];
   paginationUniqueKey?: Extract<keyof Entity, string>;
 }
 
