@@ -39,7 +39,7 @@ export type PaginationKeysType<Entity> =
   (Extract<keyof Entity, string> | CustomPaginationType<Entity>);
 
 export interface CustomPaginationType<Entity> {
-  select: string;
+  select?: string;
   key: string;
   getCursorValue: (entity: Entity) => string;
 }
@@ -128,7 +128,7 @@ export default class Paginator<Entity> {
     const clonedBuilder = new SelectQueryBuilder<Entity>(builder);
 
     this.paginationKeys.forEach((item) => {
-      if (typeof item !== 'string') {
+      if (typeof item !== 'string' && item.select) {
         clonedBuilder.addSelect(item.select, item.key);
       }
     });
@@ -154,6 +154,9 @@ export default class Paginator<Entity> {
   private getWhereClause(item: PaginationKeysType<Entity>): string {
     if (typeof item === 'string') {
       return `${this.alias}.${item}`;
+    }
+    if (!item.select) {
+      return item.key;
     }
     return item.select;
   }
