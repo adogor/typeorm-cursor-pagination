@@ -36,7 +36,8 @@ export function encodeByType(type: string, value: any): string | null {
   throw new Error(`unknown type in cursor: [${type}]${value}`);
 }
 
-export function decodeByType(type: string, value: string): string | number | Date {
+export function decodeByType(type: string, value: string): string | number | Date | null {
+  if (value === 'null') return null;
   switch (type) {
     case 'object':
     case 'date': {

@@ -182,7 +182,11 @@ export default class Paginator<Entity> {
               const paramsHolder = {
                 [`${key}_1`]: cursors[key],
               };
-              qb2.andWhere(`${this.getWhereClause(item)} ${operator} :${key}_1`, paramsHolder);
+              if (cursors[key]) {
+                qb2.andWhere(`${this.getWhereClause(item)} ${operator} :${key}_1`, paramsHolder);
+              } else {
+                qb2.andWhere(`${this.getWhereClause(item)} IS NOT NULL`);
+              }
             });
           }),
         );
@@ -196,8 +200,10 @@ export default class Paginator<Entity> {
                 };
                 if (key === this.paginationUniqueKey) {
                   qb2.andWhere(`${this.getWhereClause(item)} ${operator} :${key}_1`, paramsHolder);
-                } else {
+                } else if (cursors[key]) {
                   qb2.andWhere(`${this.getWhereClause(item)} = :${key}_1`, paramsHolder);
+                } else {
+                  qb2.andWhere(`${this.getWhereClause(item)} IS NULL`);
                 }
               });
             }),
