@@ -234,7 +234,7 @@ export default class Paginator<Entity> {
 
     const orderByCondition: OrderByCondition = {};
     this.paginationKeys.forEach((item) => {
-      const key = typeof item === 'string' ? `${this.alias}.${item}` : item.key;
+      const key = typeof item === 'string' ? `${this.alias}.${item}` : item.select;
       orderByCondition[`${key}`] = order;
     });
 
